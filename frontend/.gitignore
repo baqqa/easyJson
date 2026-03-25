@@ -11,6 +11,8 @@ node_modules
 dist
 dist-ssr
 *.local
+models/*
+src-tauri/resources/*.gguf
 
 # Editor directories and files
 .vscode/*

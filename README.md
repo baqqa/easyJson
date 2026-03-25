@@ -96,3 +96,19 @@ In `frontend`:
 - `npm run preview` - preview built frontend
 - `npm run lint` - run ESLint
 
+## Local AI Model Setup
+
+The Tauri backend AI looks for local model files in:
+
+- `models/qwen2.5-0.5b`
+
+Expected model file:
+
+- any `*.gguf` file (example: `qwen2.5-0.5b-instruct-q4_0.gguf`)
+
+Optional override:
+
+- set `EASYJSON_MODEL_DIR` to a custom absolute/relative model folder path.
+- set `EASYJSON_LLM_RUNNER` to your `llama-cli` executable path (if not in PATH).
+
+If files are missing, the app will still answer via deterministic fallback and show a model health message in the AI panel.

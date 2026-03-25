@@ -18,6 +18,8 @@ type Props = {
   value: unknown;
   path: JsonPath;
   onDelete?: () => void;
+  onNavigate?: (path: JsonPath) => void;
+  highlightPaths?: Set<string>;
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -28,7 +30,21 @@ function isJsonBranchValue(value: unknown): value is Record<string, unknown> | u
   return isPlainObject(value) || Array.isArray(value)
 }
 
-export function JsonBranch({ branchKey, value, path, onDelete }: Props) {
+function deriveArrayObjectName(item: unknown, index: number): string {
+  if (!isPlainObject(item)) return `[${index}]`
+
+  // "First element available as the name": use the first primitive property value found.
+  for (const v of Object.values(item)) {
+    if (typeof v === "string" && v.trim() !== "") return v
+    if (typeof v === "number" && Number.isFinite(v)) return String(v)
+    if (typeof v === "boolean") return v ? "true" : "false"
+  }
+
+  const firstKey = Object.keys(item)[0]
+  return firstKey ? `${firstKey}` : `[${index}]`
+}
+
+export function JsonBranch({ branchKey, value, path, onDelete, onNavigate, highlightPaths }: Props) {
   const setAtPath = useJsonEditorStore((s) => s.setAtPath)
   const deleteAtPath = useJsonEditorStore((s) => s.deleteAtPath)
   const renameKeyAtPath = useJsonEditorStore((s) => s.renameKeyAtPath)
@@ -40,10 +56,17 @@ export function JsonBranch({ branchKey, value, path, onDelete }: Props) {
   const [renameMode, setRenameMode] = useState(false)
   const [renameDraft, setRenameDraft] = useState(() => String(branchKey))
 
+  const isHighlighted = highlightPaths?.has(JSON.stringify(path)) ?? false
+
   const kind = useMemo(() => {
     if (Array.isArray(value)) return "array"
     if (isPlainObject(value)) return "object"
     return "unknown"
+  }, [value])
+
+  const isArrayOfObjects = useMemo(() => {
+    if (!Array.isArray(value)) return false
+    return value.every((v) => isPlainObject(v))
   }, [value])
 
   const children = useMemo(() => {
@@ -55,9 +78,14 @@ export function JsonBranch({ branchKey, value, path, onDelete }: Props) {
   }, [value])
 
   useEffect(() => {
-    if (canRename) setRenameDraft(String(branchKey))
+    if (canRename) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setRenameDraft(String(branchKey))
+    }
     // If rename is not allowed (array indices/root), ensure we leave rename mode.
-    if (!canRename) setRenameMode(false)
+    if (!canRename) {
+      setRenameMode(false)
+    }
   }, [branchKey, canRename])
 
   if (kind === "unknown") {
@@ -72,14 +100,19 @@ export function JsonBranch({ branchKey, value, path, onDelete }: Props) {
     <Accordion type="single" collapsible defaultValue="branch">
       <AccordionItem value="branch" className="border-none">
         <AccordionTrigger className="px-0">
-          <div className="group/branch flex w-full items-center justify-between gap-3">
+          <div
+            className={[
+              "group/branch flex w-full items-center justify-between gap-3 rounded-md",
+              isHighlighted ? "bg-[#F59E0B]/10" : "",
+            ].join(" ")}
+          >
             <div className="flex items-center gap-2">
               {renameMode ? (
                 <div className="flex items-center gap-1">
                   <Input
                     value={renameDraft}
                     onChange={(e) => setRenameDraft(e.target.value)}
-                    className="w-28 max-w-[35vw]"
+                    className="w-32 max-w-[45vw]"
                     autoFocus
                     onKeyDown={(e) => {
                       if (e.key === "Escape") {
@@ -130,7 +163,7 @@ export function JsonBranch({ branchKey, value, path, onDelete }: Props) {
                 </div>
               ) : (
                 <div className="group/branch-key flex items-center gap-1">
-                  <span className="truncate text-sm font-medium max-w-[170px]">
+                  <span className="truncate text-sm font-medium max-w-[170px] text-[#F59E0B]">
                     {typeof branchKey === "number" ? `[${branchKey}]` : branchKey}
                   </span>
                   {canRename ? (
@@ -199,35 +232,64 @@ export function JsonBranch({ branchKey, value, path, onDelete }: Props) {
               <div className="text-sm text-muted-foreground italic">Empty</div>
             ) : null}
 
-            {children.map((child) => {
-              const childPath = [...path, child.key] as JsonPath
-              const childVal = child.value
-              const canBranch = isJsonBranchValue(childVal)
+            {isArrayOfObjects ? (
+              children.map((child) => {
+                const childPath = [...path, child.key] as JsonPath
+                const label = deriveArrayObjectName(child.value, child.key as number)
 
-              return (
-                <div key={String(child.key)} className="group/row flex items-start gap-2">
-                  {canBranch ? (
-                    <div className="flex-1">
-                      <JsonBranch
-                        branchKey={child.key}
-                        value={childVal}
-                        path={childPath}
-                        onDelete={() => deleteAtPath(childPath)}
-                      />
+                return (
+                  <button
+                    key={String(child.key)}
+                    type="button"
+                    className="w-full rounded-md px-2 py-1 text-left text-sm transition-colors hover:bg-[#0F2A4D] text-white/70"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      onNavigate?.(childPath)
+                    }}
+                    title="Open this object"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="min-w-0 truncate font-medium text-[#F59E0B]">{label}</span>
+                      <span className="shrink-0 text-xs text-white/40">[{String(child.key)}]</span>
                     </div>
-                  ) : (
-                    <div className="flex-1">
-                      <JsonLeaf
-                        leafKey={child.key}
-                        value={childVal}
-                        path={childPath}
-                        onDelete={() => deleteAtPath(childPath)}
-                      />
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+                  </button>
+                )
+              })
+            ) : (
+              children.map((child) => {
+                const childPath = [...path, child.key] as JsonPath
+                const childVal = child.value
+                const canBranch = isJsonBranchValue(childVal)
+
+                return (
+                  <div key={String(child.key)} className="group/row flex items-start gap-2">
+                    {canBranch ? (
+                      <div className="flex-1">
+                        <JsonBranch
+                          branchKey={child.key}
+                          value={childVal}
+                          path={childPath}
+                          onDelete={() => deleteAtPath(childPath)}
+                          onNavigate={onNavigate}
+                          highlightPaths={highlightPaths}
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex-1">
+                        <JsonLeaf
+                          leafKey={child.key}
+                          value={childVal}
+                          path={childPath}
+                          onDelete={() => deleteAtPath(childPath)}
+                        highlightPaths={highlightPaths}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )
+              })
+            )}
           </div>
         </AccordionContent>
       </AccordionItem>

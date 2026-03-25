@@ -2,19 +2,20 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "backend",
   "version": "0.1.0",
-  "identifier": "com.tauri.dev",
-  "build": {
-    "frontendDist": "../frontend/dist",
-    "devUrl": "http://localhost:5173",
-    "beforeDevCommand": "npm --prefix ../frontend run dev",
-    "beforeBuildCommand": "npm --prefix ../frontend run build"
-  },
+  "identifier": "com.baqqa.easyjson",
+"build": {
+  "frontendDist": "../../frontend/dist",
+  "devUrl": "http://localhost:5173",
+  "beforeDevCommand": "npm --prefix ../frontend run dev",
+  "beforeBuildCommand": "npm --prefix ../frontend run build"
+},
   "app": {
     "windows": [
       {
-        "title": "backend",
+        "title": "easyJson",
         "width": 800,
         "height": 600,
+        "decorations": false,
         "resizable": true,
         "fullscreen": false
       }

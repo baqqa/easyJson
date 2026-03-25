@@ -11,6 +11,7 @@ type Props = {
   value: unknown;
   path: JsonPath;
   onDelete?: () => void;
+  highlightPaths?: Set<string>;
 };
 
 function parseLiteral(text: string): unknown {
@@ -36,9 +37,10 @@ function normalizeHexColor(hex: string): string | null {
   return null;
 }
 
-export function JsonLeaf({ value, path, onDelete, leafKey }: Props) {
+export function JsonLeaf({ value, path, onDelete, leafKey, highlightPaths }: Props) {
   const setAtPath = useJsonEditorStore((s) => s.setAtPath);
   const renameKeyAtPath = useJsonEditorStore((s) => s.renameKeyAtPath);
+  const isHighlighted = highlightPaths?.has(JSON.stringify(path)) ?? false;
 
   const kind = useMemo(() => {
     if (value === null) return "null";
@@ -60,12 +62,22 @@ export function JsonLeaf({ value, path, onDelete, leafKey }: Props) {
 
   useEffect(() => {
     // Keep the draft in sync if the key changes due to rename/delete.
-    if (canRename) setRenameDraft(leafKey);
-    if (!canRename) setRenameMode(false);
+    if (canRename) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setRenameDraft(leafKey);
+    }
+    if (!canRename) {
+      setRenameMode(false);
+    }
   }, [leafKey, canRename]);
 
   return (
-    <div className="group flex items-center gap-2 py-1">
+    <div
+      className={[
+        "group flex items-center gap-2 py-1",
+        isHighlighted ? "rounded-md bg-[#F59E0B]/10 px-2" : "",
+      ].join(" ")}
+    >
       <div className="shrink-0 text-sm text-muted-foreground">
         {typeof leafKey === "number" ? (
           `[${leafKey}]`
@@ -74,7 +86,7 @@ export function JsonLeaf({ value, path, onDelete, leafKey }: Props) {
             <Input
               value={renameDraft}
               onChange={(e) => setRenameDraft(e.target.value)}
-              className="w-28 max-w-[40vw]"
+              className="w-32 max-w-[45vw]"
               autoFocus
               onKeyDown={(e) => {
                 if (e.key === "Escape") {
@@ -126,7 +138,7 @@ export function JsonLeaf({ value, path, onDelete, leafKey }: Props) {
           </div>
         ) : canRename ? (
           <div className="group/leaf-key flex items-center gap-1">
-            <span className="min-w-[56px] max-w-[130px] truncate">{leafKey}</span>
+            <span className="min-w-[56px] max-w-[130px] truncate text-[#F59E0B]">{leafKey}</span>
             <Button
               size="icon-xs"
               variant="ghost"
@@ -143,7 +155,7 @@ export function JsonLeaf({ value, path, onDelete, leafKey }: Props) {
             </Button>
           </div>
         ) : (
-          <span className="truncate">{leafKey}</span>
+          <span className="truncate text-[#F59E0B]">{leafKey}</span>
         )}
       </div>
 
@@ -153,7 +165,7 @@ export function JsonLeaf({ value, path, onDelete, leafKey }: Props) {
           onCheckedChange={(checked) => setAtPath(path, checked)}
         />
       ) : kind === "string" ? (
-        <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1 flex items-center gap-2">
           {maybeColor ? (
             <span
               className="inline-block h-4 w-4 rounded-full border border-input/50"
@@ -164,7 +176,7 @@ export function JsonLeaf({ value, path, onDelete, leafKey }: Props) {
           <Input
             value={value as string}
             onChange={(e) => setAtPath(path, e.target.value)}
-            className="flex-1"
+            className="min-w-0 flex-1"
           />
         </div>
       ) : kind === "number" ? (
@@ -178,10 +190,10 @@ export function JsonLeaf({ value, path, onDelete, leafKey }: Props) {
             if (Number.isNaN(n)) return;
             setAtPath(path, n);
           }}
-          className="flex-1"
+          className="min-w-0 flex-1"
         />
       ) : kind === "null" ? (
-        <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1 flex items-center gap-2">
           {!nullMode ? (
             <>
               <span className="text-sm text-muted-foreground">Empty</span>
@@ -194,7 +206,7 @@ export function JsonLeaf({ value, path, onDelete, leafKey }: Props) {
               <Input
                 value={nullDraft}
                 onChange={(e) => setNullDraft(e.target.value)}
-                className="w-full max-w-[320px]"
+                className="min-w-0 flex-1"
               />
               <Button
                 variant="default"
@@ -216,7 +228,7 @@ export function JsonLeaf({ value, path, onDelete, leafKey }: Props) {
         <Input
           value={typeof value === "string" ? value : String(value)}
           onChange={(e) => setAtPath(path, e.target.value)}
-          className="flex-1"
+          className="min-w-0 flex-1"
         />
       )}
 
